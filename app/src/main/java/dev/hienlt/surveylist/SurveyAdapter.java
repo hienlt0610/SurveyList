@@ -3,13 +3,14 @@ package dev.hienlt.surveylist;
 import android.content.Context;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.RadioButton;
+import android.widget.LinearLayout;
 import android.widget.RadioGroup;
 import android.widget.TextView;
 
@@ -56,7 +57,7 @@ public class SurveyAdapter extends BaseAdapter {
 
         //Update holder view position
         holder.edtAnswer.setTag(position);
-        holder.rgAnswer.setTag(position);
+        holder.llAnswer.setTag(position);
 
         Question question = questions.get(position);
         holder.tvTitle.setText(String.format("%s %s", question.getQuestionId(), question.getQuestionContent()));
@@ -64,7 +65,7 @@ public class SurveyAdapter extends BaseAdapter {
         if (question.getQuestionType() == Question.TYPE_INPUT) {
             //Type input answer
             holder.edtAnswer.setVisibility(View.VISIBLE);
-            holder.rgAnswer.setVisibility(View.GONE);
+            holder.llAnswer.setVisibility(View.GONE);
             //Set value
             holder.edtAnswer.removeTextChangedListener(holder);
             holder.edtAnswer.setText(question.getValue());
@@ -72,7 +73,7 @@ public class SurveyAdapter extends BaseAdapter {
         } else {
             //Type select answer
             holder.edtAnswer.setVisibility(View.GONE);
-            holder.rgAnswer.setVisibility(View.VISIBLE);
+            holder.llAnswer.setVisibility(View.VISIBLE);
             addCheckBox(holder, question);
         }
 
@@ -80,33 +81,45 @@ public class SurveyAdapter extends BaseAdapter {
     }
 
     private void addCheckBox(ViewHolder viewHolder, Question question) {
-        viewHolder.rgAnswer.removeAllViews();
+        viewHolder.llAnswer.removeAllViews();
         List<Answer> answers = question.getAnswers();
-        viewHolder.rgAnswer.setOnCheckedChangeListener(null);
+        String[] resultAnswer;
+        //Lấy danh sách những đáp án đã chọn (Tách dựa vào dấu ,)
+        if (question.getValue() != null) {
+            resultAnswer = question.getValue().split(",");
+        } else {
+            resultAnswer = new String[0];
+        }
         for (Answer answer : answers) {
-            RadioButton rbAnswer = new RadioButton(context);
-            rbAnswer.setId(View.generateViewId());
-            rbAnswer.setText(answer.getAnswer());
-            boolean isChecked = question.getValue() != null && question.getValue().equals(answer.getAnswer());
-            rbAnswer.setChecked(isChecked);
+            CheckBox chkAnswer = new CheckBox(context);
+            chkAnswer.setId(View.generateViewId());
+            chkAnswer.setText(answer.getAnswer());
+            //Duyệt qua tất cả đáp án đã chọn
+            for (int i = 0; i < resultAnswer.length; i++) {
+                String result = resultAnswer[i];
+                //Kiểm tra xem đáp án này đã đc chọn trước đó chưa, nếu rồi thì check
+                if (result != null && result.equals(answer.getAnswer())) {
+                    chkAnswer.setChecked(true);
+                    break;
+                }
+            }
+            chkAnswer.setOnCheckedChangeListener(viewHolder);
             RadioGroup.LayoutParams params = new RadioGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT);
-            viewHolder.rgAnswer.addView(rbAnswer, params);
+            viewHolder.llAnswer.addView(chkAnswer, params);
         }
-        viewHolder.rgAnswer.setOnCheckedChangeListener(viewHolder);
     }
 
-    class ViewHolder implements TextWatcher, RadioGroup.OnCheckedChangeListener {
+    class ViewHolder implements TextWatcher, CheckBox.OnCheckedChangeListener {
         TextView tvTitle;
         EditText edtAnswer;
-        RadioGroup rgAnswer;
+        LinearLayout llAnswer;
 
         public ViewHolder(View view) {
             tvTitle = view.findViewById(R.id.tv_title);
             edtAnswer = view.findViewById(R.id.edt_answer);
-            rgAnswer = view.findViewById(R.id.rg_answer);
+            llAnswer = view.findViewById(R.id.ll_answer);
             edtAnswer.addTextChangedListener(this);
-            rgAnswer.setOnCheckedChangeListener(this);
         }
 
         @Override
@@ -117,6 +130,7 @@ public class SurveyAdapter extends BaseAdapter {
         @Override
         public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
             int position = (int) edtAnswer.getTag();
+            //Khi nhập bất kỳ text vào thì set vào model câu hỏi
             questions.get(position).setValue(edtAnswer.getText().toString().trim());
         }
 
@@ -126,13 +140,27 @@ public class SurveyAdapter extends BaseAdapter {
         }
 
         @Override
-        public void onCheckedChanged(RadioGroup radioGroup, int checkedId) {
-            int position = (int) edtAnswer.getTag();
+        public void onCheckedChanged(CompoundButton compoundButton, boolean checked) {
+            int position = (int) llAnswer.getTag();
             Question question = questions.get(position);
-            List<Answer> answers = question.getAnswers();
-            int indexAnser = rgAnswer.indexOfChild(rgAnswer.findViewById(rgAnswer.getCheckedRadioButtonId()));
-            Answer selectedAnswer = answers.get(indexAnser);
-            question.setValue(selectedAnswer.getAnswer());
+            //Sau khi check 1 checkbox thì set những đáp án đã chọn vào model câu hỏi
+            question.setValue(getSelectedValue(question));
+        }
+
+        //Lấy những đáp án đã chọn (có thể chọn nhiều)
+        //Vd trả về 1, 2, 3,5
+        private String getSelectedValue(Question question) {
+            StringBuilder stringBuilder = new StringBuilder();
+            for (int i = 0; i < llAnswer.getChildCount(); i++) {
+                CheckBox checkBox = (CheckBox) llAnswer.getChildAt(i);
+                if (checkBox.isChecked()) {
+                    if (stringBuilder.length() != 0) {
+                        stringBuilder.append(",");
+                    }
+                    stringBuilder.append(question.getAnswers().get(i).getAnswer());
+                }
+            }
+            return stringBuilder.toString();
         }
     }
 }

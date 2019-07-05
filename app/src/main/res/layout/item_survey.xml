@@ -23,8 +23,8 @@
         android:hint="Nhập đáp án"
         android:visibility="gone" />
 
-    <RadioGroup
-        android:id="@+id/rg_answer"
+    <LinearLayout
+        android:id="@+id/ll_answer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
